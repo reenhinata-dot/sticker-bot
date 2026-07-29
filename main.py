@@ -8,7 +8,7 @@ TOKEN = "8931754078:AAEhNdrKTNWQ0iZ5kJiK0CRfwuQqvnkmIH8"
 ADMIN_CHAT_ID = 5845672092
 
 # ضع رابط موقعك هنا بعد رفعه على الاستضافة المجانية (مثال Render)
-WEB_DASHBOARD_URL = "https://your-bot-name.onrender.com"
+WEB_DASHBOARD_URL = "https://sticker-bot-2-tl03.onrender.com"
 
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
