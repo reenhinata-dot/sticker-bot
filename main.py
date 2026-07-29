@@ -6,6 +6,8 @@ import telebot
 
 TOKEN = "8931754078:AAEhNdrKTNWQ0iZ5kJiK0CRfwuQqvnkmIH8"
 ADMIN_CHAT_ID = 5845672092
+CHANNEL_USERNAME = "@test_canel_reen"
+CHANNEL_URL = "https://t.me/test_canel_reen"
 
 WEB_DASHBOARD_URL = "https://sticker-bot-2-tl03.onrender.com"
 
@@ -18,22 +20,293 @@ db = {
     "users": {}
 }
 
+def check_subscription(user_id):
+    try:
+        chat_member = bot.get_chat_member(CHANNEL_USERNAME, user_id)
+        if chat_member.status in ['member', 'administrator', 'creator']:
+            return True
+    except Exception as e:
+        pass
+    return False
+
 @bot.message_handler(commands=['start'])
 def start_bot(message):
     chat_id = str(message.chat.id)
     name = message.from_user.first_name
     
     if chat_id in db["users"] and db["users"][chat_id].get("banned", False):
-        bot.send_message(chat_id, "🚫 عذراً، لقد تم حظرك من استخدام هذا البوت.")
+        bot.send_message(chat_id, "🚫 𝓔𝔁𝓬𝓾𝓼𝓮 𝓶𝓮, 𝔂𝓸𝓾 𝓱𝓪𝓿𝓮 𝓫𝓮𝓮𝓷 𝓫𝓪𝓷𝓷𝓮𝓭 𝓯𝓻𝓸𝓶 𝓾𝓼𝓲𝓷𝓰 𝓽𝓱𝓲𝓼 𝓫𝓸𝓽.", parse_mode="Markdown")
+        return
+
+    if int(chat_id) != ADMIN_CHAT_ID and not check_subscription(message.from_user.id):
+        sub_markup = telebot.types.InlineKeyboardMarkup()
+        sub_markup.add(telebot.types.InlineKeyboardButton("📢 اشترك في القناة هنا ⚜️", url=CHANNEL_URL))
+        sub_markup.add(telebot.types.InlineKeyboardButton("🔄 تحقق من الاشتراك ✨", callback_data="check_sub"))
+        
+        bot.send_message(
+            chat_id, 
+            f"👑 **عذراً يا *{name}*!**\n\n"
+            "🔒 ┋ لا يمكنك استخدام البوت إلا بعد الاشتراك في قناة البوت الرسمية لتفعيل خدماتك الذهبية.\n\n"
+            "👇 اشترك في القناة ثم اضغط على زر التحقق أدناه:", 
+            parse_mode="Markdown", 
+            reply_markup=sub_markup
+        )
         return
 
     if db["settings"]["maintenance"] and int(chat_id) != ADMIN_CHAT_ID:
-        bot.send_message(chat_id, "⚠️ **البوت في وضع الصيانة حالياً!**\nنعمل على تحديثه، عودوا لاحقاً.", parse_mode="Markdown")
+        bot.send_message(chat_id, "⚠️ **البوت في وضع الصيانة الذهبية حالياً!**\nنعمل على تحديث الأنظمة، عودوا لاحقاً.", parse_mode="Markdown")
         return
 
     if chat_id not in db["users"]:
         db["users"][chat_id] = {"name": name, "converted": 0, "banned": False}
 
+    markup = telebot.types.InlineKeyboardMarkup()
+    if int(chat_id) == ADMIN_CHAT_ID:
+        markup.add(telebot.types.InlineKeyboardButton("🌐 لوحة تحكم الويب الفاخرة", url=WEB_DASHBOARD_URL))
+    
+    markup.add(telebot.types.InlineKeyboardButton("💻 للتواصل مع المطور", url="https://t.me/hinata_xit"))
+    markup.add(telebot.types.InlineKeyboardButton("📢 قناة البوت الرسمية", url=CHANNEL_URL))
+
+    welcome_msg = (
+        f"🌟 **أهلاً بك يا ⦗ {name} ⦘ في عالم هـاناتا الملكي ⚜️**\n\n"
+        "╔═════════════════════╗\n"
+        "   💎 **قائمة الخدمات والأقسام الذهبية:**\n"
+        "╚═════════════════════╝\n\n"
+        "• 🎬 **قسم الملصقات المتحركة/الفيديو:** أرسل ملصقاً متحركاً لأحوله لك إلى فيديو ملكي.\n"
+        "• 🖼️ **قسم الملصقات الثابتة:** أرسل ملصقاً ثابتاً لأحوله لك إلى صورة عالية الدقة.\n"
+        "• ✨ **قسم صناعة الملصقات:** أرسل أي صورة عادية لأحولها فوراً إلى ملصق تليجرام فاخر.\n\n"
+        "👇 *أرسل ما تريد تحويله الآن لنبدأ العمل الفاخر!*"
+    )
+    
+    bot.send_message(chat_id, welcome_msg, parse_mode="Markdown", reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data == "check_sub")
+def callback_check_sub(call):
+    chat_id = str(call.message.chat.id)
+    if check_subscription(call.from_user.id):
+        bot.answer_callback_query(call.id, "✅ تم التحقق من اشتراكك بنجاح!")
+        bot.delete_message(chat_id, call.message.message_id)
+        start_bot(call.message)
+    else:
+        bot.answer_callback_query(call.id, "❌ عذراً، لم تقم بالاشتراك في القناة بعد!", show_alert=True)
+
+@bot.message_handler(commands=['bc'])
+def broadcast_command(message):
+    chat_id = message.chat.id
+    if chat_id != ADMIN_CHAT_ID:
+        return
+    
+    text_parts = message.text.split(maxsplit=1)
+    if len(text_parts) < 2:
+        bot.reply_to(message, "⚠️ صيغة الأمر خاطئة.\nاستخدمه هكذا:\n`/bc النص الذي تريد إرساله`", parse_mode="Markdown")
+        return
+    
+    bc_text = text_parts[1]
+    success_count = 0
+    
+    for uid in db["users"]:
+        try:
+            bot.send_message(int(uid), f"👑 **إشعار ملكي من الإدارة:**\n\n{bc_text}", parse_mode="Markdown")
+            success_count += 1
+        except:
+            pass
+            
+    bot.reply_to(message, f"✅ تم إرسال الإذاعة الملكية بنجاح إلى ({success_count}) مستخدماً.")
+
+@bot.message_handler(content_types=['sticker'])
+def handle_sticker(message):
+    chat_id = str(message.chat.id)
+    
+    if chat_id in db["users"] and db["users"][chat_id].get("banned", False):
+        bot.send_message(chat_id, "🚫 عذراً، لقد تم حظرك من استخدام البوت.")
+        return
+    
+    if int(chat_id) != ADMIN_CHAT_ID and not check_subscription(message.from_user.id):
+        bot.send_message(chat_id, "🔒 يجب عليك الاشتراك في القناة أولاً لاستخدام البوت: " + CHANNEL_URL)
+        return
+
+    if db["settings"]["maintenance"] and int(chat_id) != ADMIN_CHAT_ID:
+        bot.send_message(chat_id, "⚠️ البوت في وضع الصيانة الذهبية حالياً، لا يمكن معالجة طلبك الآن.")
+        return
+
+    sticker = message.sticker
+    try:
+        is_animated = sticker.is_animated
+        is_video = getattr(sticker, 'is_video', False)
+        
+        file_info = bot.get_file(sticker.file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+        
+        if is_animated or is_video:
+            bot.send_message(chat_id, "⏳ *جاري تحويل الملصق المتحرك إلى فيديو ملكي...*", parse_mode="Markdown")
+            file_name = f"video_{chat_id}.mp4"
+            with open(file_name, 'wb') as f:
+                f.write(downloaded_file)
+            with open(file_name, 'rb') as vid:
+                bot.send_video(chat_id, vid, caption="✅ *تفضل، تم تحويل الملصق المتحرك إلى فيديو بنجاح! 🎬*", parse_mode="Markdown")
+            if os.path.exists(file_name):
+                os.remove(file_name)
+        else:
+            bot.send_message(chat_id, "⏳ *جاري تحويل الملصق الثابت إلى صورة فاخرة...*", parse_mode="Markdown")
+            file_name = f"img_{chat_id}.webp"
+            with open(file_name, 'wb') as f:
+                f.write(downloaded_file)
+            with open(file_name, 'rb') as img:
+                bot.send_photo(chat_id, img, caption="✅ *تفضل، تم تحويل الملصق إلى صورة بجودة عالية! 🖼️*", parse_mode="Markdown")
+            if os.path.exists(file_name):
+                os.remove(file_name)
+            
+        if chat_id in db["users"]:
+            db["users"][chat_id]["converted"] += 1
+            
+    except Exception as e:
+        bot.send_message(chat_id, "❌ حدث خطأ أثناء المعالجة، حاول مجدداً.")
+
+@bot.message_handler(content_types=['photo'])
+def handle_photo(message):
+    chat_id = str(message.chat.id)
+    
+    if chat_id in db["users"] and db["users"][chat_id].get("banned", False):
+        bot.send_message(chat_id, "🚫 عذراً، لقد تم حظرك من استخدام البوت.")
+        return
+    
+    if int(chat_id) != ADMIN_CHAT_ID and not check_subscription(message.from_user.id):
+        bot.send_message(chat_id, "🔒 يجب عليك الاشتراك في القناة أولاً لاستخدام البوت: " + CHANNEL_URL)
+        return
+
+    if db["settings"]["maintenance"] and int(chat_id) != ADMIN_CHAT_ID:
+        bot.send_message(chat_id, "⚠️ البوت في وضع الصيانة الذهبية حالياً، لا يمكن معالجة طلبك الآن.")
+        return
+
+    try:
+        bot.send_message(chat_id, "⏳ *جاري تحويل صورتك إلى ملصق تليجرام ذهبي...*", parse_mode="Markdown")
+        photo = message.photo[-1]
+        file_info = bot.get_file(photo.file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+        
+        file_name = f"sticker_{chat_id}.webp"
+        with open(file_name, 'wb') as f:
+            f.write(downloaded_file)
+            
+        with open(file_name, 'rb') as st:
+            bot.send_sticker(chat_id, st)
+            bot.send_message(chat_id, "✅ *تفضل، تم تحويل الصورة إلى ملصق مميز وفخم! ✨*", parse_mode="Markdown")
+            
+        if os.path.exists(file_name):
+            os.remove(file_name)
+            
+        if chat_id in db["users"]:
+            db["users"][chat_id]["converted"] += 1
+            
+    except Exception as e:
+        bot.send_message(chat_id, "❌ حدث خطأ أثناء تحويل الصورة إلى ملصق.")
+
+# تصميم لوحة تحكم الويب الفاخرة (بالأزرق الملكي والذهبي)
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>لوحة تحكم بوت هـاناتا الملكية</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: Tahoma, sans-serif; }
+        body { background: #070f1e; color: #f8fafc; padding: 20px; text-align: center; }
+        h1 { color: #f59e0b; margin-bottom: 25px; font-size: 24px; text-shadow: 0 2px 4px rgba(245, 158, 11, 0.3); }
+        .card { background: #0f172a; padding: 22px; border-radius: 14px; max-width: 750px; margin: auto; border: 1.5px solid #1e3a8a; margin-bottom: 22px; text-align: right; box-shadow: 0 6px 15px rgba(30, 58, 138, 0.4); }
+        .card h2 { text-align: center; color: #f59e0b; margin-bottom: 18px; font-size: 19px; border-bottom: 1px solid #1e3a8a; padding-bottom: 8px; }
+        .btn-maint { background: {{ '#dc2626' if maintenance else '#16a34a' }}; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; font-size: 15px; text-decoration: none; display: inline-block; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        .stats-grid { display: flex; justify-content: space-around; text-align: center; margin-top: 10px; }
+        .stat-box { background: #070f1e; padding: 14px; border-radius: 10px; width: 45%; border: 1px solid #f59e0b; box-shadow: inset 0 0 10px rgba(245,158,11,0.1); }
+        .stat-box span { display: block; color: #f59e0b; font-size: 20px; font-weight: bold; margin-top: 6px; }
+        table { width: 100%; margin-top: 15px; border-collapse: collapse; font-size: 13px; }
+        th, td { border: 1px solid #1e3a8a; padding: 10px; text-align: center; }
+        th { background: #1e3a8a; color: #f59e0b; }
+        tr:nth-child(even) { background: #0a1128; }
+        .btn-ban { background: #dc2626; padding: 6px 12px; font-size: 12px; border-radius: 6px; color: white; text-decoration: none; display: inline-block; font-weight: bold; }
+        .btn-unban { background: #16a34a; padding: 6px 12px; font-size: 12px; border-radius: 6px; color: white; text-decoration: none; display: inline-block; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>👑 لوحة التحكم الملكية لبوت هـاناتا ⚜️</h1>
+
+    <div class="card">
+        <h2>⚙️ حالة البوت ووضع الصيانة الذهبية</h2>
+        <p style="margin-bottom: 15px; font-size: 14px; text-align: center;">الحالة التشغيلية: <strong>{{ 'مغلق للصيانة الملكية 🛑' if maintenance else 'يعمل بكفاءة تامة ✅' }}</strong></p>
+        <form action="/toggle_maintenance" method="POST">
+            <button type="submit" class="btn-maint">
+                {{ 'إلغاء وضع الصيانة وتشغيل البوت 🚀' if maintenance else 'تفعيل وضع الصيانة وإيقاف البوت 🛡️' }}
+            </button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h2>📊 إحصائيات النظام الفاخرة</h2>
+        <div class="stats-grid">
+            <div class="stat-box">إجمالي المستخدمين<span>{{ users|length }}</span></div>
+            <div class="stat-box">إجمالي عمليات التحويل<span>{{ total_conversions }}</span></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>👥 إدارة المستخدمين وحظرهم الملكي</h2>
+        <p style="font-size: 13px; color: #94a3b8; margin-bottom: 12px; text-align: center;">💡 للإذاعة السريعة لجميع المشتركين، اكتب في محادثة البوت: <code style="color: #f59e0b;">/bc رسالتك هنا</code></p>
+        <table>
+            <tr>
+                <th>المعرف (ID)</th>
+                <th>اسم المستخدم</th>
+                <th>التحويلات</th>
+                <th>الحالة</th>
+                <th>إجراءات التحكم</th>
+            </tr>
+            {% for uid, u in users.items() %}
+            <tr>
+                <td>{{ uid }}</td>
+                <td>{{ u.name }}</td>
+                <td>{{ u.converted }}</td>
+                <td>{{ 'محظور 🛑' if u.banned else 'نشط ✅' }}</td>
+                <td>
+                    {% if u.banned %}
+                        <a href="/toggle_ban/{{ uid }}" class="btn-unban">إلغاء الحظر</a>
+                    {% else %}
+                        <a href="/toggle_ban/{{ uid }}" class="btn-ban">حظر المستخدم</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+</body>
+</html>
+"""
+
+@app.route('/')
+def dashboard():
+    total_conversions = sum(u.get("converted", 0) for u in db["users"].values())
+    return render_template_string(HTML_TEMPLATE, maintenance=db["settings"]["maintenance"], users=db["users"], total_conversions=total_conversions)
+
+@app.route('/toggle_maintenance', methods=['POST'])
+def toggle_maintenance():
+    db["settings"]["maintenance"] = not db["settings"]["maintenance"]
+    return redirect(url_for('dashboard'))
+
+@app.route('/toggle_ban/<uid>')
+def toggle_ban(uid):
+    if uid in db["users"]:
+        db["users"][uid]["banned"] = not db["users"][uid]["banned"]
+    return redirect(url_for('dashboard'))
+
+def run_bot():
+    while True:
+        try:
+            bot.infinity_polling(timeout=20, long_polling_timeout=20)
+        except Exception as e:
+            time.sleep(3)
+
+if __name__ == '__main__':
+    t = threading.Thread(target=run_bot)
+    t.daemon = True
+    t.start()
+    app.run(host='0.0.0.0', port=5000, debug=False)
     markup = telebot.types.InlineKeyboardMarkup()
     
     if int(chat_id) == ADMIN_CHAT_ID:
