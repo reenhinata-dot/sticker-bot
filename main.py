@@ -34,10 +34,8 @@ def start_bot(message):
     if chat_id not in db["users"]:
         db["users"][chat_id] = {"name": name, "converted": 0, "banned": False}
 
-    # الأزرار الشفافة
     markup = telebot.types.InlineKeyboardMarkup()
     
-    # زر يظهر للأدمن فقط يفتح رابط لوحة التحكم
     if int(chat_id) == ADMIN_CHAT_ID:
         markup.add(telebot.types.InlineKeyboardButton("🌐 لوحة تحكم الويب", url=WEB_DASHBOARD_URL))
     
@@ -46,10 +44,10 @@ def start_bot(message):
     welcome_msg = (
         f"✨ أهلاً بك يا *{name}* في بوت التحويل الذكي للملصقات!\n\n"
         "📦 *ما يمكنني فعله لأجلك:*\n"
-        "• أرسل لي **ملصقاً متحركاً** 🎬 وسأحوله لك إلى **فيديو متحرك**.\n"
-        "• أرسل لي **ملصقاً ثابتاً** 🖼️ وسأحوله لك إلى **صورة عادية**.\n"
-        "• يمكنك حفظ النتيجة مباشرة في هاتفك بكل سهولة!\n\n"
-        "👇 أرسل ملصقك الآن لنبدأ:"
+        "• أرسل لي **ملصقاً متحركاً/فيديو** وسأحوله لك إلى **فيديو** 🎬.\n"
+        "• أرسل لي **ملصقاً ثابتاً** وسأحوله لك إلى **صورة** 🖼️.\n"
+        "• أرسل لي **صورة عادية** وسأحوله لك مباشرة إلى **ملصق تليجرام** ✨.\n\n"
+        "👇 أرسل ما تريد تحويله الآن لنبدأ:"
     )
     
     bot.send_message(chat_id, welcome_msg, parse_mode="Markdown", reply_markup=markup)
@@ -100,28 +98,65 @@ def handle_sticker(message):
         
         if is_animated or is_video:
             bot.send_message(chat_id, "⏳ جاري تحويل الملصق المتحرك إلى فيديو...")
-            file_name = "sticker_video.mp4"
+            file_name = f"sticker_video_{chat_id}.mp4"
             with open(file_name, 'wb') as f:
                 f.write(downloaded_file)
                 
             with open(file_name, 'rb') as vid:
-                bot.send_video(chat_id, vid, caption="✅ تفضل، تم تحويل الملصق المتحرك إلى فيديو متحرك!")
-            os.remove(file_name)
+                bot.send_video(chat_id, vid, caption="✅ تفضل، تم تحويل الملصق المتحرك إلى فيديو!")
+            if os.path.exists(file_name):
+                os.remove(file_name)
         else:
             bot.send_message(chat_id, "⏳ جاري تحويل الملصق الثابت إلى صورة...")
-            file_name = "sticker_img.webp"
+            file_name = f"sticker_img_{chat_id}.webp"
             with open(file_name, 'wb') as f:
                 f.write(downloaded_file)
                 
             with open(file_name, 'rb') as img:
                 bot.send_photo(chat_id, img, caption="✅ تفضل، تم تحويل الملصق إلى صورة!")
-            os.remove(file_name)
+            if os.path.exists(file_name):
+                os.remove(file_name)
             
         if chat_id in db["users"]:
             db["users"][chat_id]["converted"] += 1
             
     except Exception as e:
         bot.send_message(chat_id, "❌ حدث خطأ أثناء المعالجة، حاول مجدداً.")
+
+@bot.message_handler(content_types=['photo'])
+def handle_photo(message):
+    chat_id = str(message.chat.id)
+    
+    if chat_id in db["users"] and db["users"][chat_id].get("banned", False):
+        bot.send_message(chat_id, "🚫 عذراً، لقد تم حظرك من استخدام هذا البوت.")
+        return
+    
+    if db["settings"]["maintenance"] and int(chat_id) != ADMIN_CHAT_ID:
+        bot.send_message(chat_id, "⚠️ البوت في وضع الصيانة حالياً، لا يمكن معالجة طلبك الآن.")
+        return
+
+    try:
+        bot.send_message(chat_id, "⏳ جاري تحويل الصورة إلى ملصق...")
+        photo = message.photo[-1]
+        file_info = bot.get_file(photo.file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+        
+        file_name = f"photo_sticker_{chat_id}.webp"
+        with open(file_name, 'wb') as f:
+            f.write(downloaded_file)
+            
+        with open(file_name, 'rb') as st:
+            bot.send_sticker(chat_id, st)
+            bot.send_message(chat_id, "✅ تفضل، تم تحويل الصورة إلى ملصق بنجاح!")
+            
+        if os.path.exists(file_name):
+            os.remove(file_name)
+            
+        if chat_id in db["users"]:
+            db["users"][chat_id]["converted"] += 1
+            
+    except Exception as e:
+        bot.send_message(chat_id, "❌ حدث خطأ أثناء تحويل الصورة إلى ملصق.")
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -154,8 +189,13 @@ HTML_TEMPLATE = """
     </div>
 
     <div class="card">
-        <h2>📊 إدارة المستخدمين وإحصائياتهم</h2>
-        <p style="margin-bottom: 10px;">إجمالي المستخدمين: <strong>{{ users|length }}</strong></p>
+        <h2>📊 إحصائيات عامة</h2>
+        <p style="margin-bottom: 8px;">إجمالي المستخدمين: <strong>{{ users|length }}</strong></p>
+        <p style="margin-bottom: 8px;">إجمالي عمليات التحويل: <strong>{{ total_conversions }}</strong></p>
+    </div>
+
+    <div class="card">
+        <h2>👥 إدارة المستخدمين</h2>
         <p style="font-size: 13px; color: #94a3b8; margin-bottom: 10px;">💡 للإذاعة السريعة، اكتب في محادثة البوت: <code style="color: #38bdf8;">/bc رسالتك هنا</code></p>
         <table>
             <tr>
@@ -188,7 +228,8 @@ HTML_TEMPLATE = """
 
 @app.route('/')
 def dashboard():
-    return render_template_string(HTML_TEMPLATE, maintenance=db["settings"]["maintenance"], users=db["users"])
+    total_conversions = sum(u.get("converted", 0) for u in db["users"].values())
+    return render_template_string(HTML_TEMPLATE, maintenance=db["settings"]["maintenance"], users=db["users"], total_conversions=total_conversions)
 
 @app.route('/toggle_maintenance', methods=['POST'])
 def toggle_maintenance():
